@@ -6,12 +6,27 @@
 # - This original codebase assumes `batch_size=1` (one bag per step).
 # - Multi-batch / multi-gpu features exist only in your modified repo.
 #
-# Example:
+# Full example (all supported env vars):
+#   cd /home/sijuzheng/project/CMTA && \
 #   CUDA_VISIBLE_DEVICES=0 \
-#   BATCH_SIZE=1 \
-#   OOM=8192 \
-#   SEED=7 \
+#   DATA_ROOT_DIR=/home/lukehuang/disk1T/sijuzheng_data/features_dir \
+#   WHICH_SPLITS=5foldcv \
+#   MODEL=cmta \
+#   MODEL_SIZE=small \
+#   MODAL=coattn \
+#   FUSION=concat \
 #   NUM_EPOCH=150 \
+#   BATCH_SIZE=1 \
+#   LOSS=nll_surv_l1 \
+#   LR=0.001 \
+#   OPTIMIZER=SGD \
+#   SCHEDULER=None \
+#   ALPHA=0.0001 \
+#   SEED=42 \
+#   OOM=8192 \
+#   NUM_WORKERS=8 \
+#   PREFETCH_FACTOR=4 \
+#   PIN_MEMORY=1 \
 #   bash scripts/luad_ablation_base.sh
 
 set -euo pipefail
