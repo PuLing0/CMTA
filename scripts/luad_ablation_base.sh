@@ -25,6 +25,10 @@ OOM=${OOM:-4096}
 DATA_ROOT_DIR=${DATA_ROOT_DIR:-/home/lukehuang/disk1T/sijuzheng_data/features_dir}
 WHICH_SPLITS=${WHICH_SPLITS:-5foldcv}
 
+NUM_WORKERS=${NUM_WORKERS:-0}
+PREFETCH_FACTOR=${PREFETCH_FACTOR:-2}
+PIN_MEMORY=${PIN_MEMORY:-0}
+
 MODEL=${MODEL:-cmta}
 MODEL_SIZE=${MODEL_SIZE:-small}
 MODAL=${MODAL:-coattn}
@@ -60,8 +64,11 @@ ARGS=(
   --scheduler "${SCHEDULER}"
   --alpha "${ALPHA}"
   --seed "${SEED}"
+  --num_workers "${NUM_WORKERS}"
+  --prefetch_factor "${PREFETCH_FACTOR}"
+  --pin_memory "${PIN_MEMORY}"
   --OOM "${OOM}"
 )
 
-echo "Running CMTA LUAD: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} seed=${SEED} batch_size=${BATCH_SIZE} OOM=${OOM}"
+echo "Running CMTA LUAD: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} seed=${SEED} batch_size=${BATCH_SIZE} OOM=${OOM} num_workers=${NUM_WORKERS} prefetch_factor=${PREFETCH_FACTOR} pin_memory=${PIN_MEMORY}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" python main.py "${ARGS[@]}" "$@"

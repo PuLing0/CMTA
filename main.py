@@ -58,9 +58,17 @@ def main(args):
             weighted=args.weighted_sample,
             modal=args.modal,
             batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            prefetch_factor=args.prefetch_factor,
+            pin_memory=args.pin_memory,
         )
         val_loader = get_split_loader(
-            val_dataset, modal=args.modal, batch_size=args.batch_size
+            val_dataset,
+            modal=args.modal,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            prefetch_factor=args.prefetch_factor,
+            pin_memory=args.pin_memory,
         )
         print(
             "training: {}, validation: {}".format(len(train_dataset), len(val_dataset))

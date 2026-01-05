@@ -60,7 +60,7 @@ class SubsetSequentialSampler(Sampler):
     def __len__(self):
         return len(self.indices)
 
-def get_split_loader(split_dataset, training = False, testing = False, weighted = False, modal='coattn', batch_size=1):
+def get_split_loader(split_dataset, training = False, testing = False, weighted = False, modal='coattn', batch_size=1, num_workers=0, prefetch_factor=2, pin_memory=0):
     """
         return either the validation loader or training loader 
     """
@@ -71,7 +71,13 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
     else:
         collate = collate_MIL_survival
 
-    kwargs = {'num_workers': 0} if torch.cuda.is_available() else {}
+    num_workers = int(num_workers)
+    prefetch_factor = int(prefetch_factor)
+    pin_memory = bool(int(pin_memory))
+
+    kwargs = {'num_workers': num_workers, 'pin_memory': pin_memory}
+    if num_workers > 0:
+        kwargs['prefetch_factor'] = prefetch_factor
     if not testing:
         if training:
             if weighted:

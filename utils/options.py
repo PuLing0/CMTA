@@ -24,6 +24,11 @@ def parse_args():
 
     parser.add_argument("--OOM", type=int, default=0, help="Ramdomly sampling some patches to avoid OOM error")
 
+    # DataLoader performance
+    parser.add_argument("--num_workers", type=int, default=0, help="Number of DataLoader workers (default: 0)")
+    parser.add_argument("--prefetch_factor", type=int, default=2, help="Number of batches prefetched per worker (num_workers > 0)")
+    parser.add_argument("--pin_memory", type=int, default=0, help="Use pin_memory in DataLoader (0/1)")
+
     # Model Parameters.
     parser.add_argument(
         "--model",
