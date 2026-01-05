@@ -1,0 +1,3 @@
+*.pyc
+results/*
+csv/tcga_luad_all_clean.csv
