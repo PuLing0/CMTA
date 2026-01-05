@@ -243,11 +243,11 @@ class Generic_MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
                         if path_features.size(0) > self.OOM:
                             path_features = path_features[np.random.choice(path_features.size(0), self.OOM, replace=False)]
                     cluster_ids = torch.Tensor(cluster_ids)
-                    genomic_features = torch.tensor(self.genomic_features.iloc[idx])
+                    genomic_features = torch.tensor(self.genomic_features.iloc[idx].values, dtype=torch.float32)
                     return (path_features, cluster_ids, genomic_features, label, event_time, c)
 
                 elif self.modal == 'omic':
-                    genomic_features = torch.tensor(self.genomic_features.iloc[idx])
+                    genomic_features = torch.tensor(self.genomic_features.iloc[idx].values, dtype=torch.float32)
                     return (torch.zeros((1, 1)), genomic_features, label, event_time, c)
 
                 elif self.modal == 'pathomic':
@@ -264,7 +264,7 @@ class Generic_MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
                     if self.OOM > 0:
                         if path_features.size(0) > self.OOM:
                             path_features = path_features[np.random.choice(path_features.size(0), self.OOM, replace=False)]
-                    genomic_features = torch.tensor(self.genomic_features.iloc[idx])
+                    genomic_features = torch.tensor(self.genomic_features.iloc[idx].values, dtype=torch.float32)
                     return (path_features, genomic_features, label, event_time, c)
 
                 elif self.modal == 'coattn':
@@ -283,12 +283,12 @@ class Generic_MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
                         if path_features.size(0) > self.OOM:
                             path_features = path_features[np.random.choice(path_features.size(0), self.OOM, replace=False)]
 
-                    omic1 = torch.tensor(self.genomic_features[self.omic_names[0]].iloc[idx])
-                    omic2 = torch.tensor(self.genomic_features[self.omic_names[1]].iloc[idx])
-                    omic3 = torch.tensor(self.genomic_features[self.omic_names[2]].iloc[idx])
-                    omic4 = torch.tensor(self.genomic_features[self.omic_names[3]].iloc[idx])
-                    omic5 = torch.tensor(self.genomic_features[self.omic_names[4]].iloc[idx])
-                    omic6 = torch.tensor(self.genomic_features[self.omic_names[5]].iloc[idx])
+                    omic1 = torch.tensor(self.genomic_features[self.omic_names[0]].iloc[idx].values, dtype=torch.float32)
+                    omic2 = torch.tensor(self.genomic_features[self.omic_names[1]].iloc[idx].values, dtype=torch.float32)
+                    omic3 = torch.tensor(self.genomic_features[self.omic_names[2]].iloc[idx].values, dtype=torch.float32)
+                    omic4 = torch.tensor(self.genomic_features[self.omic_names[3]].iloc[idx].values, dtype=torch.float32)
+                    omic5 = torch.tensor(self.genomic_features[self.omic_names[4]].iloc[idx].values, dtype=torch.float32)
+                    omic6 = torch.tensor(self.genomic_features[self.omic_names[5]].iloc[idx].values, dtype=torch.float32)
 
                     return (path_features, omic1, omic2, omic3, omic4, omic5, omic6, label, event_time, c)
 
