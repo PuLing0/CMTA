@@ -156,6 +156,40 @@ class Generic_WSI_Survival_Dataset(Dataset):
         if len(split) > 0:
             mask = self.slide_data['slide_id'].isin(split.tolist())
             df_slice = self.slide_data[mask].reset_index(drop=True)
+
+            # Drop patients with no available WSI feature (.pt) files to avoid empty bags.
+            if self.data_dir and self.modal in {'path', 'cluster', 'pathomic', 'coattn'}:
+                keep_mask = []
+                for _i in range(len(df_slice)):
+                    case_id = df_slice.loc[_i, 'case_id']
+
+                    # Resolve data_dir for this sample (supports dict per oncotree_code).
+                    if isinstance(self.data_dir, dict):
+                        source = df_slice.loc[_i, 'oncotree_code']
+                        data_dir = self.data_dir.get(source, None)
+                    else:
+                        data_dir = self.data_dir
+
+                    if not data_dir:
+                        keep_mask.append(False)
+                        continue
+
+                    has_pt = False
+                    slide_ids = self.patient_dict.get(case_id, [])
+                    if isinstance(slide_ids, str):
+                        slide_ids = np.array(slide_ids).reshape(-1)
+                    for slide_id in slide_ids:
+                        wsi_path = os.path.join(data_dir, 'pt_files', '{}.pt'.format(slide_id.rstrip('.svs')))
+                        if os.path.isfile(wsi_path):
+                            has_pt = True
+                            break
+                    keep_mask.append(has_pt)
+
+                keep_mask = np.asarray(keep_mask, dtype=bool)
+                if (~keep_mask).any():
+                    n_drop = int((~keep_mask).sum())
+                    print(f'[WARN] Dropping {n_drop} {split_key} samples with missing pt features')
+                    df_slice = df_slice[keep_mask].reset_index(drop=True)
             split = Generic_Split(df_slice, metadata=self.metadata, modal=self.modal, signatures=self.signatures,
                                   data_dir=self.data_dir, label_col=self.label_col, patient_dict=self.patient_dict, num_classes=self.num_classes, OOM=getattr(self, 'OOM', 0))
         else:
