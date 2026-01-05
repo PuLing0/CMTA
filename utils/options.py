@@ -67,6 +67,11 @@ def parse_args():
                         "AdamW", "RAdam", "PlainRAdam", "Lookahead"], default="Adam")
     parser.add_argument("--scheduler", type=str, choices=["None", "exp", "step", "plateau", "cosine"], default="cosine")
     parser.add_argument("--num_epoch", type=int, default=20, help="Maximum number of epochs to train (default: 20)")
+    # Early stopping (validation c-index)
+    parser.add_argument("--earlystop_start", "--earltstop_start", type=int, default=0,
+                        help="Start early stopping from this epoch (default: 0)")
+    parser.add_argument("--patience", type=int, default=0,
+                        help="Stop if val c-index doesn't improve for N epochs (0 disables)")
     parser.add_argument("--batch_size", type=int, default=1, help="Batch Size (Default: 1, due to varying bag sizes)")
     parser.add_argument("--lr", type=float, default=2e-4, help="Learning rate (default: 0.0001)")
     parser.add_argument("--weight_decay", type=float, default=1e-5, help="Weight decay")

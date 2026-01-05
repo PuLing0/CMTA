@@ -42,6 +42,10 @@ class Engine(object):
             self.validate(val_loader, model, criterion)
             return
 
+        patience = int(getattr(self.args, 'patience', 0) or 0)
+        earlystop_start = int(getattr(self.args, 'earlystop_start', getattr(self.args, 'earltstop_start', 0)) or 0)
+        earlystop_counter = 0
+
         for epoch in range(self.args.num_epoch):
             self.epoch = epoch
             # train for one epoch
@@ -58,6 +62,14 @@ class Engine(object):
                     'state_dict': model.state_dict(),
                     'best_score': self.best_score})
             print(' *** best c-index={:.4f} at epoch {}'.format(self.best_score, self.best_epoch))
+            if is_best:
+                earlystop_counter = 0
+            elif (patience > 0) and (epoch >= earlystop_start):
+                earlystop_counter += 1
+                print(f'EarlyStopping counter: {earlystop_counter} out of {patience}')
+                if earlystop_counter >= patience:
+                    print('Early stopping triggered.')
+                    break
             if scheduler is not None:
                 scheduler.step()
             print('>')

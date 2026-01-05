@@ -23,6 +23,8 @@
 #   SCHEDULER=None \
 #   ALPHA=0.0001 \
 #   SEED=7 \
+#   EARLYSTOP_START=20 \
+#   PATIENCE=30 \
 #   OOM=8192 \
 #   NUM_WORKERS=8 \
 #   PREFETCH_FACTOR=4 \
@@ -43,6 +45,9 @@ WHICH_SPLITS=${WHICH_SPLITS:-5foldcv}
 NUM_WORKERS=${NUM_WORKERS:-0}
 PREFETCH_FACTOR=${PREFETCH_FACTOR:-2}
 PIN_MEMORY=${PIN_MEMORY:-0}
+
+EARLYSTOP_START=${EARLYSTOP_START:-0}
+PATIENCE=${PATIENCE:-0}
 
 MODEL=${MODEL:-cmta}
 MODEL_SIZE=${MODEL_SIZE:-small}
@@ -79,11 +84,13 @@ ARGS=(
   --scheduler "${SCHEDULER}"
   --alpha "${ALPHA}"
   --seed "${SEED}"
+  --earlystop_start "${EARLYSTOP_START}"
+  --patience "${PATIENCE}"
   --num_workers "${NUM_WORKERS}"
   --prefetch_factor "${PREFETCH_FACTOR}"
   --pin_memory "${PIN_MEMORY}"
   --OOM "${OOM}"
 )
 
-echo "Running CMTA LUAD: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} seed=${SEED} batch_size=${BATCH_SIZE} OOM=${OOM} num_workers=${NUM_WORKERS} prefetch_factor=${PREFETCH_FACTOR} pin_memory=${PIN_MEMORY}"
+echo "Running CMTA LUAD: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} seed=${SEED} batch_size=${BATCH_SIZE} OOM=${OOM} num_workers=${NUM_WORKERS} prefetch_factor=${PREFETCH_FACTOR} pin_memory=${PIN_MEMORY} earlystop_start=${EARLYSTOP_START} patience=${PATIENCE}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" python main.py "${ARGS[@]}" "$@"
