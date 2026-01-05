@@ -22,7 +22,7 @@
 #   OPTIMIZER=SGD \
 #   SCHEDULER=None \
 #   ALPHA=0.0001 \
-#   SEED=42 \
+#   SEED=7 \
 #   OOM=8192 \
 #   NUM_WORKERS=8 \
 #   PREFETCH_FACTOR=4 \
