@@ -198,7 +198,7 @@ class Generic_MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
 
     def __getitem__(self, idx):
         case_id = self.slide_data['case_id'][idx]
-        label = self.slide_data['disc_label'][idx]
+        label = int(self.slide_data['disc_label'][idx])
         event_time = self.slide_data[self.label_col][idx]
         c = self.slide_data['censorship'][idx]
         slide_ids = self.patient_dict[case_id]
