@@ -6,17 +6,13 @@
 # - This original codebase assumes `batch_size=1` (one bag per step).
 # - Multi-batch / multi-gpu features exist only in your modified repo.
 #
-# Examples:
-#   # Env style
+# Example:
 #   CUDA_VISIBLE_DEVICES=0 \
 #   BATCH_SIZE=1 \
 #   OOM=8192 \
-#   SEED=1 \
+#   SEED=7 \
 #   NUM_EPOCH=150 \
 #   bash scripts/luad_ablation_base.sh
-#
-#   # Script arg style (overrides SEED env)
-#   bash scripts/luad_ablation_base.sh --seed 7
 
 set -euo pipefail
 
@@ -41,25 +37,6 @@ OPTIMIZER=${OPTIMIZER:-SGD}
 SCHEDULER=${SCHEDULER:-None}
 ALPHA=${ALPHA:-0.0001}
 SEED=${SEED:-1}
-
-# Allow overriding SEED via script args, while forwarding all other args to python.
-PY_ARGS=()
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --seed)
-      SEED="$2"
-      shift 2
-      ;;
-    --seed=*)
-      SEED="${1#*=}"
-      shift
-      ;;
-    *)
-      PY_ARGS+=("$1")
-      shift
-      ;;
-  esac
-done
 
 if [ "${BATCH_SIZE}" != "1" ]; then
   echo "[ERROR] This repo version only supports BATCH_SIZE=1 (got BATCH_SIZE=${BATCH_SIZE})." >&2
@@ -87,4 +64,4 @@ ARGS=(
 )
 
 echo "Running CMTA LUAD: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} seed=${SEED} batch_size=${BATCH_SIZE} OOM=${OOM}"
-CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" python main.py "${ARGS[@]}" "${PY_ARGS[@]}"
+CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" python main.py "${ARGS[@]}" "$@"
