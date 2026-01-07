@@ -115,12 +115,13 @@ class CoxSurvLoss(object):
 
 class KLLoss(object):
     def __call__(self, y, y_hat):
-        return F.kl_div(y_hat.softmax(dim=-1).log(), y.softmax(dim=-1), reduction="sum")
+        # Keep batch-size invariance: for batch_size=1, batchmean == sum.
+        return F.kl_div(y_hat.softmax(dim=-1).log(), y.softmax(dim=-1), reduction="batchmean")
 
 
 class CosineLoss(object):
     def __call__(self, y, y_hat):
-        return 1 - F.cosine_similarity(y, y_hat, dim=1)
+        return (1 - F.cosine_similarity(y, y_hat, dim=1)).mean()
 
 
 class OrthogonalLoss(nn.Module):
@@ -139,4 +140,4 @@ class OrthogonalLoss(nn.Module):
         )
 
         loss = pos_pairs + self.gamma * neg_pairs
-        return loss
+        return loss.mean()

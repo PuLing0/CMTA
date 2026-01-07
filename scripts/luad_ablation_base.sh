@@ -3,8 +3,7 @@
 # Base CMTA training script for TCGA-LUAD (original CMTA repo).
 #
 # Notes:
-# - This original codebase assumes `batch_size=1` (one bag per step).
-# - Multi-batch / multi-gpu features exist only in your modified repo.
+# - This repo supports true multi-batch training via length-bucketed batching.
 #
 # Full example (all supported env vars):
 #   cd /home/sijuzheng/project/CMTA && \
@@ -63,12 +62,6 @@ OPTIMIZER=${OPTIMIZER:-SGD}
 SCHEDULER=${SCHEDULER:-None}
 ALPHA=${ALPHA:-0.0001}
 SEED=${SEED:-1}
-
-if [ "${BATCH_SIZE}" != "1" ]; then
-  echo "[ERROR] This repo version only supports BATCH_SIZE=1 (got BATCH_SIZE=${BATCH_SIZE})." >&2
-  echo "        Use your multi-batch CMTA repo if you need BATCH_SIZE>1." >&2
-  exit 1
-fi
 
 ARGS=(
   --which_splits "${WHICH_SPLITS}"

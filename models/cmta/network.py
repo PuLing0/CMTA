@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 import torch
 import torch.nn as nn
@@ -66,7 +67,7 @@ class Transformer_P(nn.Module):
         h = torch.cat([features, features[:, :add_length, :]], dim=1)  # [B, N, 512]
         # ---->cls_token
         B = h.shape[0]
-        cls_tokens = self.cls_token.expand(B, -1, -1).cuda()
+        cls_tokens = self.cls_token.expand(B, -1, -1).to(features.device)
         h = torch.cat((cls_tokens, h), dim=1)
         # ---->Translayer x1
         h = self.layer1(h)  # [B, N, 512]
@@ -92,7 +93,7 @@ class Transformer_G(nn.Module):
 
     def forward(self, features):
         # ---->pad
-        cls_tokens = self.cls_token.expand(features.shape[0], -1, -1).cuda()
+        cls_tokens = self.cls_token.expand(features.shape[0], -1, -1).to(features.device)
         h = torch.cat((cls_tokens, features), dim=1)
         # ---->Translayer x1
         h = self.layer1(h)  # [B, N, 512]
@@ -168,14 +169,52 @@ class CMTA(nn.Module):
     def forward(self, **kwargs):
         # meta genomics and pathomics features
         x_path = kwargs["x_path"]
+        path_lengths = kwargs.get("path_lengths", None)
         x_omic = [kwargs["x_omic%d" % i] for i in range(1, 7)]
 
         # Enbedding
         # genomics embedding
-        genomics_features = [self.genomics_fc[idx].forward(sig_feat) for idx, sig_feat in enumerate(x_omic)]
-        genomics_features = torch.stack(genomics_features).unsqueeze(0)  # [1, 6, 1024]
+        x_omic = [t.unsqueeze(0) if t.dim() == 1 else t for t in x_omic]
+        genomics_features = [self.genomics_fc[idx](sig_feat) for idx, sig_feat in enumerate(x_omic)]
+        genomics_features = torch.stack(genomics_features, dim=1)  # [B, 6, 256]
+
         # pathomics embedding
-        pathomics_features = self.pathomics_fc(x_path).unsqueeze(0)
+        if path_lengths is None:
+            if x_path.dim() == 2:
+                pathomics_features = self.pathomics_fc(x_path).unsqueeze(0)
+            elif x_path.dim() == 3:
+                pathomics_features = self.pathomics_fc(x_path)
+            else:
+                raise ValueError(f"Unsupported x_path shape: {tuple(x_path.shape)}")
+        else:
+            if isinstance(path_lengths, torch.Tensor):
+                lengths = [int(x) for x in path_lengths.tolist()]
+            else:
+                lengths = [int(x) for x in path_lengths]
+
+            if x_path.dim() != 2:
+                raise ValueError(
+                    f"x_path must be packed 2D when path_lengths is provided (got shape {tuple(x_path.shape)})"
+                )
+
+            target_lengths = {int(math.ceil(math.sqrt(n))) ** 2 for n in lengths}
+            if len(target_lengths) != 1:
+                raise ValueError(
+                    "Mixed bag sizes in a batch detected. Use a length-bucketed BatchSampler "
+                    "so that all samples share the same square length."
+                )
+            target_L = next(iter(target_lengths))
+
+            x_path_emb_packed = self.pathomics_fc(x_path)  # [sum(N_i), 256]
+            x_path_emb_list = torch.split(x_path_emb_packed, lengths, dim=0)
+            padded = []
+            for emb, n in zip(x_path_emb_list, lengths):
+                if n == target_L:
+                    padded.append(emb)
+                    continue
+                pad_len = target_L - n
+                padded.append(torch.cat([emb, emb[:pad_len, :]], dim=0))
+            pathomics_features = torch.stack(padded, dim=0)  # [B, target_L, 256]
 
         # encoder
         # pathomics encoder

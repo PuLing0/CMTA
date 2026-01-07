@@ -77,26 +77,43 @@ class Engine(object):
 
     def train(self, data_loader, model, criterion, optimizer):
         model.train()
-        train_loss = 0.0
-        all_risk_scores = np.zeros((len(data_loader)))
-        all_censorships = np.zeros((len(data_loader)))
-        all_event_times = np.zeros((len(data_loader)))
+        total_loss = 0.0
+        total_samples = 0
+        all_risk_scores = []
+        all_censorships = []
+        all_event_times = []
         dataloader = tqdm(data_loader, desc='Train Epoch: {}'.format(self.epoch))
-        for batch_idx, (data_WSI, data_omic1, data_omic2, data_omic3, data_omic4, data_omic5, data_omic6, label, event_time, c) in enumerate(dataloader):
+        for batch in dataloader:
+            if len(batch) == 11:
+                (data_WSI, path_lengths, data_omic1, data_omic2, data_omic3, data_omic4,
+                 data_omic5, data_omic6, label, event_time, c) = batch
+            else:
+                (data_WSI, data_omic1, data_omic2, data_omic3, data_omic4,
+                 data_omic5, data_omic6, label, event_time, c) = batch
+                path_lengths = None
+            batch_size = int(label.shape[0])
 
             if torch.cuda.is_available():
-                data_WSI = data_WSI.cuda()
-                data_omic1 = data_omic1.type(torch.FloatTensor).cuda()
-                data_omic2 = data_omic2.type(torch.FloatTensor).cuda()
-                data_omic3 = data_omic3.type(torch.FloatTensor).cuda()
-                data_omic4 = data_omic4.type(torch.FloatTensor).cuda()
-                data_omic5 = data_omic5.type(torch.FloatTensor).cuda()
-                data_omic6 = data_omic6.type(torch.FloatTensor).cuda()
-                label = label.type(torch.LongTensor).cuda()
-                c = c.type(torch.FloatTensor).cuda()
+                data_WSI = data_WSI.cuda(non_blocking=True)
+                data_omic1 = data_omic1.float().cuda(non_blocking=True)
+                data_omic2 = data_omic2.float().cuda(non_blocking=True)
+                data_omic3 = data_omic3.float().cuda(non_blocking=True)
+                data_omic4 = data_omic4.float().cuda(non_blocking=True)
+                data_omic5 = data_omic5.float().cuda(non_blocking=True)
+                data_omic6 = data_omic6.float().cuda(non_blocking=True)
+                label = label.long().cuda(non_blocking=True)
+                c = c.float().cuda(non_blocking=True)
 
-            hazards, S, P, P_hat, G, G_hat = model(x_path=data_WSI, x_omic1=data_omic1, x_omic2=data_omic2,
-                                                   x_omic3=data_omic3, x_omic4=data_omic4, x_omic5=data_omic5, x_omic6=data_omic6)
+            hazards, S, P, P_hat, G, G_hat = model(
+                x_path=data_WSI,
+                path_lengths=path_lengths,
+                x_omic1=data_omic1,
+                x_omic2=data_omic2,
+                x_omic3=data_omic3,
+                x_omic4=data_omic4,
+                x_omic5=data_omic5,
+                x_omic6=data_omic6,
+            )
 
             # survival loss + sim loss + sim loss
             sur_loss = criterion[0](hazards=hazards, S=S, Y=label, c=c)
@@ -105,16 +122,20 @@ class Engine(object):
             loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)
 
             risk = -torch.sum(S, dim=1).detach().cpu().numpy()
-            all_risk_scores[batch_idx] = risk
-            all_censorships[batch_idx] = c.item()
-            all_event_times[batch_idx] = event_time
-            train_loss += loss.item()
+            all_risk_scores.append(risk)
+            all_censorships.append(c.detach().cpu().numpy())
+            all_event_times.append(np.asarray(event_time))
+            total_loss += float(loss.item()) * batch_size
+            total_samples += batch_size
 
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
         # calculate loss and error for epoch
-        train_loss /= len(dataloader)
+        train_loss = total_loss / max(total_samples, 1)
+        all_risk_scores = np.concatenate(all_risk_scores, axis=0)
+        all_censorships = np.concatenate(all_censorships, axis=0)
+        all_event_times = np.concatenate(all_event_times, axis=0)
         c_index = concordance_index_censored((1-all_censorships).astype(bool),
                                              all_event_times, all_risk_scores, tied_tol=1e-08)[0]
         print('loss: {:.4f}, c_index: {:.4f}'.format(train_loss, c_index))
@@ -125,26 +146,43 @@ class Engine(object):
 
     def validate(self, data_loader, model, criterion):
         model.eval()
-        val_loss = 0.0
-        all_risk_scores = np.zeros((len(data_loader)))
-        all_censorships = np.zeros((len(data_loader)))
-        all_event_times = np.zeros((len(data_loader)))
+        total_loss = 0.0
+        total_samples = 0
+        all_risk_scores = []
+        all_censorships = []
+        all_event_times = []
         dataloader = tqdm(data_loader, desc='Test Epoch: {}'.format(self.epoch))
-        for batch_idx, (data_WSI, data_omic1, data_omic2, data_omic3, data_omic4, data_omic5, data_omic6, label, event_time, c) in enumerate(dataloader):
+        for batch in dataloader:
+            if len(batch) == 11:
+                (data_WSI, path_lengths, data_omic1, data_omic2, data_omic3, data_omic4,
+                 data_omic5, data_omic6, label, event_time, c) = batch
+            else:
+                (data_WSI, data_omic1, data_omic2, data_omic3, data_omic4,
+                 data_omic5, data_omic6, label, event_time, c) = batch
+                path_lengths = None
+            batch_size = int(label.shape[0])
             if torch.cuda.is_available():
-                data_WSI = data_WSI.cuda()
-                data_omic1 = data_omic1.type(torch.FloatTensor).cuda()
-                data_omic2 = data_omic2.type(torch.FloatTensor).cuda()
-                data_omic3 = data_omic3.type(torch.FloatTensor).cuda()
-                data_omic4 = data_omic4.type(torch.FloatTensor).cuda()
-                data_omic5 = data_omic5.type(torch.FloatTensor).cuda()
-                data_omic6 = data_omic6.type(torch.FloatTensor).cuda()
-                label = label.type(torch.LongTensor).cuda()
-                c = c.type(torch.FloatTensor).cuda()
+                data_WSI = data_WSI.cuda(non_blocking=True)
+                data_omic1 = data_omic1.float().cuda(non_blocking=True)
+                data_omic2 = data_omic2.float().cuda(non_blocking=True)
+                data_omic3 = data_omic3.float().cuda(non_blocking=True)
+                data_omic4 = data_omic4.float().cuda(non_blocking=True)
+                data_omic5 = data_omic5.float().cuda(non_blocking=True)
+                data_omic6 = data_omic6.float().cuda(non_blocking=True)
+                label = label.long().cuda(non_blocking=True)
+                c = c.float().cuda(non_blocking=True)
 
             with torch.no_grad():
-                hazards, S, P, P_hat, G, G_hat = model(x_path=data_WSI, x_omic1=data_omic1, x_omic2=data_omic2, x_omic3=data_omic3,
-                                                       x_omic4=data_omic4, x_omic5=data_omic5, x_omic6=data_omic6)  # return hazards, S, Y_hat, A_raw, results_dict
+                hazards, S, P, P_hat, G, G_hat = model(
+                    x_path=data_WSI,
+                    path_lengths=path_lengths,
+                    x_omic1=data_omic1,
+                    x_omic2=data_omic2,
+                    x_omic3=data_omic3,
+                    x_omic4=data_omic4,
+                    x_omic5=data_omic5,
+                    x_omic6=data_omic6,
+                )  # return hazards, S, Y_hat, A_raw, results_dict
 
             # survival loss + sim loss + sim loss
             sur_loss = criterion[0](hazards=hazards, S=S, Y=label, c=c)
@@ -153,12 +191,16 @@ class Engine(object):
             loss = sur_loss + self.args.alpha * (sim_loss_P + sim_loss_G)
 
             risk = -torch.sum(S, dim=1).cpu().numpy()
-            all_risk_scores[batch_idx] = risk
-            all_censorships[batch_idx] = c.cpu().numpy()
-            all_event_times[batch_idx] = event_time
-            val_loss += loss.item()
+            all_risk_scores.append(risk)
+            all_censorships.append(c.detach().cpu().numpy())
+            all_event_times.append(np.asarray(event_time))
+            total_loss += float(loss.item()) * batch_size
+            total_samples += batch_size
 
-        val_loss /= len(dataloader)
+        val_loss = total_loss / max(total_samples, 1)
+        all_risk_scores = np.concatenate(all_risk_scores, axis=0)
+        all_censorships = np.concatenate(all_censorships, axis=0)
+        all_event_times = np.concatenate(all_event_times, axis=0)
         c_index = concordance_index_censored((1-all_censorships).astype(bool),
                                              all_event_times, all_risk_scores, tied_tol=1e-08)[0]
         print('loss: {:.4f}, c_index: {:.4f}'.format(val_loss, c_index))

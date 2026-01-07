@@ -5,9 +5,13 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Sampler, WeightedRandomSampler, RandomSampler, SequentialSampler
 
+from utils.batching import LengthBucketBatchSampler, compute_bucket_lengths
+
 def collate_MIL_survival(batch):
     img = torch.cat([item[0] for item in batch], dim = 0)
-    omic = torch.cat([item[1] for item in batch], dim = 0).type(torch.FloatTensor)
+    # For fixed-size omics features, stacking preserves the batch dimension.
+    # (Path features remain concatenated in legacy collate.)
+    omic = torch.stack([item[1] for item in batch], dim=0).type(torch.FloatTensor)
     label = torch.LongTensor([item[2] for item in batch])
     event_time = np.array([item[3] for item in batch])
     c = torch.FloatTensor([item[4] for item in batch])
@@ -16,25 +20,31 @@ def collate_MIL_survival(batch):
 def collate_MIL_survival_cluster(batch):
     img = torch.cat([item[0] for item in batch], dim = 0)
     cluster_ids = torch.cat([item[1] for item in batch], dim = 0).type(torch.LongTensor)
-    omic = torch.cat([item[2] for item in batch], dim = 0).type(torch.FloatTensor)
+    omic = torch.stack([item[2] for item in batch], dim=0).type(torch.FloatTensor)
     label = torch.LongTensor([item[3] for item in batch])
     event_time = np.array([item[4] for item in batch])
     c = torch.FloatTensor([item[5] for item in batch])
     return [img, cluster_ids, omic, label, event_time, c]
 
-def collate_MIL_survival_sig(batch):
-    img = torch.cat([item[0] for item in batch], dim = 0)
-    omic1 = torch.cat([item[1] for item in batch], dim = 0).type(torch.FloatTensor)
-    omic2 = torch.cat([item[2] for item in batch], dim = 0).type(torch.FloatTensor)
-    omic3 = torch.cat([item[3] for item in batch], dim = 0).type(torch.FloatTensor)
-    omic4 = torch.cat([item[4] for item in batch], dim = 0).type(torch.FloatTensor)
-    omic5 = torch.cat([item[5] for item in batch], dim = 0).type(torch.FloatTensor)
-    omic6 = torch.cat([item[6] for item in batch], dim = 0).type(torch.FloatTensor)
+def collate_MIL_survival_sig_packed(batch):
+    """
+    Packed collate for CMTA (coattn):
+    - Concatenate variable-length path tokens into a single tensor
+    - Keep per-sample lengths so the model can restore batch structure after embedding
+    """
+    x_path_packed = torch.cat([item[0] for item in batch], dim=0)
+    path_lengths = torch.LongTensor([int(item[0].shape[0]) for item in batch])
+    omic1 = torch.stack([item[1] for item in batch], dim=0).type(torch.FloatTensor)
+    omic2 = torch.stack([item[2] for item in batch], dim=0).type(torch.FloatTensor)
+    omic3 = torch.stack([item[3] for item in batch], dim=0).type(torch.FloatTensor)
+    omic4 = torch.stack([item[4] for item in batch], dim=0).type(torch.FloatTensor)
+    omic5 = torch.stack([item[5] for item in batch], dim=0).type(torch.FloatTensor)
+    omic6 = torch.stack([item[6] for item in batch], dim=0).type(torch.FloatTensor)
 
     label = torch.LongTensor([item[7] for item in batch])
     event_time = np.array([item[8] for item in batch])
     c = torch.FloatTensor([item[9] for item in batch])
-    return [img, omic1, omic2, omic3, omic4, omic5, omic6, label, event_time, c]
+    return [x_path_packed, path_lengths, omic1, omic2, omic3, omic4, omic5, omic6, label, event_time, c]
 
 def make_weights_for_balanced_classes_split(dataset):
     N = float(len(dataset))                                           
@@ -65,7 +75,7 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
         return either the validation loader or training loader 
     """
     if modal == 'coattn':
-        collate = collate_MIL_survival_sig
+        collate = collate_MIL_survival_sig_packed
     elif modal == 'cluster':
         collate = collate_MIL_survival_cluster
     else:
@@ -79,14 +89,30 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
     if num_workers > 0:
         kwargs['prefetch_factor'] = prefetch_factor
     if not testing:
+        # Base sampler.
         if training:
             if weighted:
                 weights = make_weights_for_balanced_classes_split(split_dataset)
-                loader = DataLoader(split_dataset, batch_size=batch_size, sampler = WeightedRandomSampler(weights, len(weights)), collate_fn = collate, **kwargs)    
+                sampler = WeightedRandomSampler(weights, len(weights))
             else:
-                loader = DataLoader(split_dataset, batch_size=batch_size, sampler = RandomSampler(split_dataset), collate_fn = collate, **kwargs)
+                sampler = RandomSampler(split_dataset)
         else:
-            loader = DataLoader(split_dataset, batch_size=batch_size, sampler = SequentialSampler(split_dataset), collate_fn = collate, **kwargs)
+            sampler = SequentialSampler(split_dataset)
+
+        # For coattn, buckets by square bag length to avoid padding/masks across samples.
+        use_length_bucket = (modal == "coattn") and (int(batch_size) > 1)
+        if use_length_bucket:
+            if not hasattr(split_dataset, "_cmta_bucket_lengths"):
+                split_dataset._cmta_bucket_lengths = compute_bucket_lengths(split_dataset)
+            batch_sampler = LengthBucketBatchSampler(
+                sampler=sampler,
+                bucket_keys=split_dataset._cmta_bucket_lengths,
+                batch_size=int(batch_size),
+                drop_last=False,
+            )
+            loader = DataLoader(split_dataset, batch_sampler=batch_sampler, collate_fn=collate, **kwargs)
+        else:
+            loader = DataLoader(split_dataset, batch_size=batch_size, sampler=sampler, collate_fn=collate, **kwargs)
     
     else:
         ids = np.random.choice(np.arange(len(split_dataset), int(len(split_dataset)*0.1)), replace = False)
