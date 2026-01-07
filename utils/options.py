@@ -13,6 +13,12 @@ def parse_args():
         "--which_splits", type=str, default="5foldcv", help="Which splits folder to use in ./splits/ (Default: ./splits/5foldcv"
     )
     parser.add_argument(
+        "--fold",
+        type=str,
+        default="",
+        help="Fold order to run in CV, e.g. 34012 or 34 (empty runs 01234).",
+    )
+    parser.add_argument(
         "--dataset",
         type=str,
         default="tcga_blca_100",

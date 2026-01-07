@@ -3,6 +3,7 @@ import os
 import csv
 import time
 import numpy as np
+import re
 
 from datasets.dataset_survival import Generic_MIL_Survival_Dataset
 from utils.options import parse_args
@@ -11,6 +12,33 @@ from utils.util import get_split_loader, set_seed
 from utils.loss import define_loss
 from utils.optimizer import define_optimizer
 from utils.scheduler import define_scheduler
+
+
+def _parse_fold_order(fold_arg: str, n_folds: int = 5) -> list[int]:
+    fold_arg = (fold_arg or "").strip()
+    if fold_arg == "":
+        return list(range(n_folds))
+
+    if fold_arg.isdigit():
+        folds = [int(ch) for ch in fold_arg]
+    else:
+        parts = [p for p in re.split(r"[,\s]+", fold_arg) if p]
+        folds = [int(p) for p in parts]
+
+    if not folds:
+        return list(range(n_folds))
+
+    if any(f < 0 or f >= n_folds for f in folds):
+        raise ValueError(f"--fold must be in [0,{n_folds - 1}] (got {fold_arg!r})")
+
+    unique_folds: list[int] = []
+    seen = set()
+    for f in folds:
+        if f in seen:
+            continue
+        seen.add(f)
+        unique_folds.append(f)
+    return unique_folds
 
 
 def main(args):
@@ -28,13 +56,16 @@ def main(args):
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
 
-    # 5-fold cross validation
-    header = ["folds", "fold 0", "fold 1", "fold 2", "fold 3", "fold 4", "mean", "std"]
+    fold_order = _parse_fold_order(args.fold, n_folds=5)
+    print(f"Running folds in order: {fold_order}")
+
+    header = ["folds"] + [f"fold {f}" for f in fold_order] + ["mean", "std"]
     best_epoch = ["best epoch"]
     best_score = ["best cindex"]
 
     # start 5-fold CV evaluation.
-    for fold in range(5):
+    for fold in fold_order:
+        set_seed(args.seed + fold)
         # build dataset
         dataset = Generic_MIL_Survival_Dataset(
             csv_path="./csv/%s_all_clean.csv" % (args.dataset),
@@ -105,10 +136,11 @@ def main(args):
 
     # finish training
     # mean and std
+    fold_scores = np.asarray(best_score[1:], dtype=np.float64)
     best_epoch.append("~")
     best_epoch.append("~")
-    best_score.append(np.mean(best_score[1:6]))
-    best_score.append(np.std(best_score[1:6]))
+    best_score.append(float(fold_scores.mean()))
+    best_score.append(float(fold_scores.std()))
 
     csv_path = os.path.join(results_dir, "results.csv")
     print("############", csv_path)

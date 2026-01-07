@@ -11,6 +11,7 @@
 #   CUDA_VISIBLE_DEVICES=0 \
 #   DATA_ROOT_DIR=/home/lukehuang/disk1T/sijuzheng_data/features_dir \
 #   WHICH_SPLITS=5foldcv \
+#   FOLD=32 \
 #   MODEL=cmta \
 #   MODEL_SIZE=small \
 #   MODAL=coattn \
@@ -41,6 +42,7 @@ BATCH_SIZE=${BATCH_SIZE:-1}
 OOM=${OOM:-4096}
 DATA_ROOT_DIR=${DATA_ROOT_DIR:-/home/lukehuang/disk1T/sijuzheng_data/features_dir}
 WHICH_SPLITS=${WHICH_SPLITS:-5foldcv}
+FOLD=${FOLD:-}
 
 NUM_WORKERS=${NUM_WORKERS:-0}
 PREFETCH_FACTOR=${PREFETCH_FACTOR:-2}
@@ -70,6 +72,7 @@ fi
 
 ARGS=(
   --which_splits "${WHICH_SPLITS}"
+  --fold "${FOLD}"
   --dataset tcga_luad
   --data_root_dir "${DATA_ROOT_DIR}"
   --modal "${MODAL}"
@@ -92,5 +95,5 @@ ARGS=(
   --OOM "${OOM}"
 )
 
-echo "Running CMTA LUAD: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} seed=${SEED} batch_size=${BATCH_SIZE} OOM=${OOM} num_workers=${NUM_WORKERS} prefetch_factor=${PREFETCH_FACTOR} pin_memory=${PIN_MEMORY} earlystop_start=${EARLYSTOP_START} patience=${PATIENCE}"
+echo "Running CMTA LUAD: CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES} seed=${SEED} fold=${FOLD:-all} batch_size=${BATCH_SIZE} OOM=${OOM} num_workers=${NUM_WORKERS} prefetch_factor=${PREFETCH_FACTOR} pin_memory=${PIN_MEMORY} earlystop_start=${EARLYSTOP_START} patience=${PATIENCE}"
 CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES}" python main.py "${ARGS[@]}" "$@"
